@@ -1,91 +1,120 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python IDE - Fijo</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css">
-    <style>
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; font-family: sans-serif; overflow: hidden; }
-        header { padding: 10px 20px; background: #2d2d2d; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
-        #main { display: flex; flex: 1; position: relative; }
-        #editor-container { flex: 1; height: 100%; }
-        #output-container { width: 35%; background: #000; display: flex; flex-direction: column; border-left: 1px solid #444; }
-        #output { flex: 1; padding: 15px; overflow-y: auto; font-family: 'Consolas', monospace; color: #d4d4d4; margin: 0; white-space: pre-wrap; font-size: 14px; }
-        button { background: #0078d4; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        .badge { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #444; }
-    </style>
-</head>
-<body>
-
-<header>
-    <div><strong>Python IDE</strong> <span id="status" class="badge">⏳ Cargando...</span></div>
-    <button id="run-btn" disabled onclick="runCode()">Ejecutar</button>
-</header>
-
-<div id="main">
-    <div id="editor-container"></div>
-    <div id="output-container">
-        <div style="padding:8px; font-size:12px; background:#252526; color:#569cd6;">CONSOLA</div>
-        <pre id="output">Inicializando...</pre>
-    </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
-
-<script>
-    // ESTO SOLUCIONA TU ERROR: 
-    // Obligamos a Monaco a NO usar Workers externos que causan el 404 en GitHub
-    window.MonacoEnvironment = {
-        getWorkerUrl: function (workerId, label) {
-            return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-                self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' };
-                importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`
-            )}`;
-        }
-    };
-
-    let editor;
-    let pyodide;
-
-    require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
-
-    require(['vs/editor/editor.main'], function () {
-        editor = monaco.editor.create(document.getElementById('editor-container'), {
-            value: "print('¡Hola desde Bolivia!')\n# Escribe aquí tu algoritmo",
-            language: 'python',
-            theme: 'vs-dark',
-            automaticLayout: true,
-            minimap: { enabled: false }
-        });
-    });
-
-    async function init() {
-        const out = document.getElementById('output');
-        try {
-            pyodide = await loadPyodide();
-            document.getElementById('status').innerText = "✅ Listo";
-            out.innerText = "Python cargado correctamente.";
-            document.getElementById('run-btn').disabled = false;
-        } catch (e) {
-            out.innerText = "Error crítico: " + e;
-        }
-    }
-    init();
-
-    async function runCode() {
-        const out = document.getElementById('output');
-        out.innerText = "Ejecutando...";
-        try {
-            await pyodide.runPythonAsync(`import sys, io\nsys.stdout = io.StringIO()`);
-            await pyodide.runPythonAsync(editor.getValue());
-            out.innerText = pyodide.runPython("sys.stdout.getvalue()") || "Ejecutado (sin salida)";
-        } catch (err) {
-            out.innerText = "Error en el código:\n" + err;
-        }
-    }
-</script>
-</body>
-</html>
+loader.js:657  GET https://elvisriva-max.github.io/mi-interprete/stackframe.js net::ERR_ABORTED 404 (Not Found)
+load @ loader.js:657
+load @ loader.js:588
+(anonymous) @ loader.js:1627
+_loadModule @ loader.js:1639
+_resolve @ loader.js:1722
+defineModule @ loader.js:1376
+(anonymous) @ loader.js:1817
+(anonymous) @ error-stack-parser.js:7
+(anonymous) @ error-stack-parser.js:13
+(anonymous) @ pyodide.js:1
+(anonymous) @ compat.ts:1
+(anonymous) @ pyodide.umd.ts:4Understand this error
+loader.js:249 Loading "stackframe" failed
+defaultOnError @ loader.js:249
+onError @ loader.js:538
+_onLoadError @ loader.js:1503
+(anonymous) @ loader.js:1615
+(anonymous) @ loader.js:1635
+triggerErrorback @ loader.js:601
+(anonymous) @ loader.js:588
+(anonymous) @ loader.js:621
+script
+load @ loader.js:643
+load @ loader.js:588
+(anonymous) @ loader.js:1627
+_loadModule @ loader.js:1639
+_resolve @ loader.js:1722
+defineModule @ loader.js:1376
+(anonymous) @ loader.js:1817
+(anonymous) @ error-stack-parser.js:7
+(anonymous) @ error-stack-parser.js:13
+(anonymous) @ pyodide.js:1
+(anonymous) @ compat.ts:1
+(anonymous) @ pyodide.umd.ts:4Understand this error
+loader.js:250 Error: [object Event]
+    at Object.y [as ensureError] (loader.js:234:18)
+    at c._createLoadError (loader.js:1461:26)
+    at c._onLoadError (loader.js:1472:23)
+    at l (loader.js:1615:11)
+    at Object.errorback (loader.js:1635:7)
+    at y.triggerErrorback (loader.js:601:24)
+    at loader.js:588:107
+    at HTMLScriptElement.d (loader.js:621:5)
+defaultOnError @ loader.js:250
+onError @ loader.js:538
+_onLoadError @ loader.js:1503
+(anonymous) @ loader.js:1615
+(anonymous) @ loader.js:1635
+triggerErrorback @ loader.js:601
+(anonymous) @ loader.js:588
+(anonymous) @ loader.js:621
+script
+load @ loader.js:643
+load @ loader.js:588
+(anonymous) @ loader.js:1627
+_loadModule @ loader.js:1639
+_resolve @ loader.js:1722
+defineModule @ loader.js:1376
+(anonymous) @ loader.js:1817
+(anonymous) @ error-stack-parser.js:7
+(anonymous) @ error-stack-parser.js:13
+(anonymous) @ pyodide.js:1
+(anonymous) @ compat.ts:1
+(anonymous) @ pyodide.umd.ts:4Understand this error
+loader.js:251 Here are the modules that depend on it:
+defaultOnError @ loader.js:251
+onError @ loader.js:538
+_onLoadError @ loader.js:1503
+(anonymous) @ loader.js:1615
+(anonymous) @ loader.js:1635
+triggerErrorback @ loader.js:601
+(anonymous) @ loader.js:588
+(anonymous) @ loader.js:621
+script
+load @ loader.js:643
+load @ loader.js:588
+(anonymous) @ loader.js:1627
+_loadModule @ loader.js:1639
+_resolve @ loader.js:1722
+defineModule @ loader.js:1376
+(anonymous) @ loader.js:1817
+(anonymous) @ error-stack-parser.js:7
+(anonymous) @ error-stack-parser.js:13
+(anonymous) @ pyodide.js:1
+(anonymous) @ compat.ts:1
+(anonymous) @ pyodide.umd.ts:4Understand this error
+loader.js:252 ['error-stack-parser']
+defaultOnError @ loader.js:252
+onError @ loader.js:538
+_onLoadError @ loader.js:1503
+(anonymous) @ loader.js:1615
+(anonymous) @ loader.js:1635
+triggerErrorback @ loader.js:601
+(anonymous) @ loader.js:588
+(anonymous) @ loader.js:621
+script
+load @ loader.js:643
+load @ loader.js:588
+(anonymous) @ loader.js:1627
+_loadModule @ loader.js:1639
+_resolve @ loader.js:1722
+defineModule @ loader.js:1376
+(anonymous) @ loader.js:1817
+(anonymous) @ error-stack-parser.js:7
+(anonymous) @ error-stack-parser.js:13
+(anonymous) @ pyodide.js:1
+(anonymous) @ compat.ts:1
+(anonymous) @ pyodide.umd.ts:4Understand this error
+nls.ts:312 Failed trying to load default language strings NetworkError: Failed to execute 'importScripts' on 'WorkerGlobalScope': The script at 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/vs/base/common/worker/simpleWorker.nls.js' failed to load.
+    at i.load (loader.js:720:1)
+    at n.load (loader.js:581:1)
+    at u (loader.js:1620:1)
+    at g._loadModule (loader.js:1632:1)
+    at g._resolve (loader.js:1715:1)
+    at g.defineModule (loader.js:1369:1)
+    at g._relativeRequire (loader.js:1403:1)
+    at o (loader.js:1574:1)
+    at Object.m [as load] (nls.ts:310:3)
+    at g._loadPluginDependency (loader.js:1653:1)
