@@ -3,18 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python Web IDE</title>
-    <link rel="stylesheet" href="https://unpkg.com/monaco-editor@0.45.0/min/vs/editor/editor.main.css">
+    <title>Python IDE - Fijo</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css">
     <style>
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; font-family: sans-serif; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; font-family: sans-serif; overflow: hidden; }
         header { padding: 10px 20px; background: #2d2d2d; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
-        #main { display: flex; flex: 1; overflow: hidden; }
-        #editor-container { flex: 1; }
+        #main { display: flex; flex: 1; position: relative; }
+        #editor-container { flex: 1; height: 100%; }
         #output-container { width: 35%; background: #000; display: flex; flex-direction: column; border-left: 1px solid #444; }
-        .output-header { padding: 8px 15px; background: #252526; font-size: 12px; color: #569cd6; border-bottom: 1px solid #333; }
         #output { flex: 1; padding: 15px; overflow-y: auto; font-family: 'Consolas', monospace; color: #d4d4d4; margin: 0; white-space: pre-wrap; font-size: 14px; }
         button { background: #0078d4; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        button:disabled { background: #555; cursor: wait; }
+        button:disabled { background: #555; cursor: not-allowed; }
         .badge { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #444; }
     </style>
 </head>
@@ -28,47 +27,50 @@
 <div id="main">
     <div id="editor-container"></div>
     <div id="output-container">
-        <div class="output-header">CONSOLA</div>
-        <pre id="output">Cargando componentes...</pre>
+        <div style="padding:8px; font-size:12px; background:#252526; color:#569cd6;">CONSOLA</div>
+        <pre id="output">Inicializando...</pre>
     </div>
 </div>
 
-<script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 
 <script>
+    // ESTO SOLUCIONA TU ERROR: 
+    // Obligamos a Monaco a NO usar Workers externos que causan el 404 en GitHub
+    window.MonacoEnvironment = {
+        getWorkerUrl: function (workerId, label) {
+            return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
+                self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' };
+                importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`
+            )}`;
+        }
+    };
+
     let editor;
     let pyodide;
 
-    // Configuración específica para servidores web (GitHub Pages)
-    require.config({ 
-        paths: { 'vs': 'https://unpkg.com/monaco-editor@0.45.0/min/vs' } 
-    });
+    require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } });
 
-    // Forzamos la carga de los módulos
-    window.MonacoEnvironment = { getWorkerUrl: () => proxy };
-    let proxy = URL.createObjectURL(new Blob([`
-        self.MonacoEnvironment = { baseUrl: 'https://unpkg.com/monaco-editor@0.45.0/min/vs' };
-        importScripts('https://unpkg.com/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');
-    `], { type: 'text/javascript' }));
-
-    require(['vs/editor/editor.main'], function() {
+    require(['vs/editor/editor.main'], function () {
         editor = monaco.editor.create(document.getElementById('editor-container'), {
-            value: "print('¡Hola desde Python!')\n# Escribe tu código aquí",
+            value: "print('¡Hola desde Bolivia!')\n# Escribe aquí tu algoritmo",
             language: 'python',
             theme: 'vs-dark',
-            automaticLayout: true
+            automaticLayout: true,
+            minimap: { enabled: false }
         });
     });
 
     async function init() {
+        const out = document.getElementById('output');
         try {
             pyodide = await loadPyodide();
             document.getElementById('status').innerText = "✅ Listo";
-            document.getElementById('output').innerText = "Entorno preparado.";
+            out.innerText = "Python cargado correctamente.";
             document.getElementById('run-btn').disabled = false;
         } catch (e) {
-            document.getElementById('output').innerText = "Error cargando Python: " + e;
+            out.innerText = "Error crítico: " + e;
         }
     }
     init();
@@ -77,14 +79,11 @@
         const out = document.getElementById('output');
         out.innerText = "Ejecutando...";
         try {
-            await pyodide.runPythonAsync(`
-                import sys, io
-                sys.stdout = io.StringIO()
-            `);
+            await pyodide.runPythonAsync(`import sys, io\nsys.stdout = io.StringIO()`);
             await pyodide.runPythonAsync(editor.getValue());
             out.innerText = pyodide.runPython("sys.stdout.getvalue()") || "Ejecutado (sin salida)";
         } catch (err) {
-            out.innerText = "Error:\n" + err;
+            out.innerText = "Error en el código:\n" + err;
         }
     }
 </script>
