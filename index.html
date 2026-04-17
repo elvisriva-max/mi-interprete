@@ -3,111 +3,88 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python Web IDE - Programación Competitiva</title>
-    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+    <title>Python Web IDE</title>
+    <link rel="stylesheet" href="https://unpkg.com/monaco-editor@0.45.0/min/vs/editor/editor.main.css">
     <style>
-        :root { --primary: #0078d4; --bg: #1e1e1e; --header: #2d2d2d; }
-        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: white; }
-        header { padding: 12px 20px; background: var(--header); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; font-family: sans-serif; }
+        header { padding: 10px 20px; background: #2d2d2d; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
         #main { display: flex; flex: 1; overflow: hidden; }
         #editor-container { flex: 1; }
-        #output-container { width: 35%; background: #000; padding: 0; display: flex; flex-direction: column; border-left: 1px solid #444; }
-        .output-header { padding: 10px 15px; background: #252526; color: #569cd6; font-size: 13px; font-weight: bold; border-bottom: 1px solid #333; }
-        #output { flex: 1; padding: 15px; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; color: #d4d4d4; margin: 0; white-space: pre-wrap; font-size: 14px; }
-        button { background: var(--primary); color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; }
-        button:hover { background: #005a9e; }
-        button:disabled { background: #555; cursor: wait; opacity: 0.7; }
-        .status-badge { font-size: 12px; padding: 4px 8px; border-radius: 10px; background: #444; color: #ddd; }
-        .error-text { color: #f44747; }
+        #output-container { width: 35%; background: #000; display: flex; flex-direction: column; border-left: 1px solid #444; }
+        .output-header { padding: 8px 15px; background: #252526; font-size: 12px; color: #569cd6; border-bottom: 1px solid #333; }
+        #output { flex: 1; padding: 15px; overflow-y: auto; font-family: 'Consolas', monospace; color: #d4d4d4; margin: 0; white-space: pre-wrap; font-size: 14px; }
+        button { background: #0078d4; color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:disabled { background: #555; cursor: wait; }
+        .badge { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #444; }
     </style>
 </head>
 <body>
 
 <header>
-    <div>
-        <strong>PyIDE v2.0</strong> 
-        <span id="loading-status" class="status-badge">⏳ Cargando motor Python...</span>
-    </div>
-    <button id="run-btn" disabled onclick="runCode()">▶ Ejecutar Código</button>
+    <div><strong>Python IDE</strong> <span id="status" class="badge">⏳ Cargando...</span></div>
+    <button id="run-btn" disabled onclick="runCode()">Ejecutar</button>
 </header>
 
 <div id="main">
     <div id="editor-container"></div>
     <div id="output-container">
-        <div class="output-header">CONSOLA DE SALIDA</div>
-        <pre id="output">Inicializando entorno...</pre>
+        <div class="output-header">CONSOLA</div>
+        <pre id="output">Cargando componentes...</pre>
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+<script src="https://unpkg.com/monaco-editor@0.45.0/min/vs/loader.js"></script>
 <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
 
 <script>
     let editor;
     let pyodide;
 
-    // Configuración de Monaco optimizada para Web
-    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+    // Configuración específica para servidores web (GitHub Pages)
+    require.config({ 
+        paths: { 'vs': 'https://unpkg.com/monaco-editor@0.45.0/min/vs' } 
+    });
+
+    // Forzamos la carga de los módulos
+    window.MonacoEnvironment = { getWorkerUrl: () => proxy };
+    let proxy = URL.createObjectURL(new Blob([`
+        self.MonacoEnvironment = { baseUrl: 'https://unpkg.com/monaco-editor@0.45.0/min/vs' };
+        importScripts('https://unpkg.com/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');
+    `], { type: 'text/javascript' }));
 
     require(['vs/editor/editor.main'], function() {
         editor = monaco.editor.create(document.getElementById('editor-container'), {
-            value: [
-                '# Practica aquí tus ejercicios de Programación Competitiva\n',
-                'def solve():\n    # Escribe tu solución aquí\n    n = 10\n    primos = [i for i in range(2, n) if all(i % j != 0 for j in range(2, int(i**0.5) + 1))]\n    print(f"Primos hasta {n}: {primos}")\n',
-                'solve()'
-            ].join('\n'),
+            value: "print('¡Hola desde Python!')\n# Escribe tu código aquí",
             language: 'python',
             theme: 'vs-dark',
-            automaticLayout: true,
-            fontSize: 15,
-            minimap: { enabled: false },
-            padding: { top: 10 }
+            automaticLayout: true
         });
     });
 
-    // Inicialización de Pyodide con manejo de errores
-    async function initPyodide() {
-        const status = document.getElementById('loading-status');
-        const output = document.getElementById('output');
+    async function init() {
         try {
             pyodide = await loadPyodide();
-            status.innerText = "✅ Python Listo";
-            status.style.background = "#228b22";
-            output.innerText = "Entorno listo. Escribe código y presiona Ejecutar.";
+            document.getElementById('status').innerText = "✅ Listo";
+            document.getElementById('output').innerText = "Entorno preparado.";
             document.getElementById('run-btn').disabled = false;
         } catch (e) {
-            status.innerText = "❌ Error de carga";
-            status.style.background = "#a80000";
-            output.innerHTML = `<span class="error-text">Error al cargar Pyodide: ${e.message}\nVerifica tu conexión a internet.</span>`;
+            document.getElementById('output').innerText = "Error cargando Python: " + e;
         }
     }
-    initPyodide();
+    init();
 
     async function runCode() {
-        const outputElement = document.getElementById('output');
-        const runBtn = document.getElementById('run-btn');
-        const code = editor.getValue();
-        
-        runBtn.disabled = true;
-        outputElement.innerText = "Ejecutando...";
-
+        const out = document.getElementById('output');
+        out.innerText = "Ejecutando...";
         try {
-            // Limpiamos y preparamos el Standard Output
             await pyodide.runPythonAsync(`
-                import sys
-                import io
+                import sys, io
                 sys.stdout = io.StringIO()
             `);
-
-            // Ejecutamos el código del usuario
-            await pyodide.runPythonAsync(code);
-            
-            const stdout = pyodide.runPython("sys.stdout.getvalue()");
-            outputElement.innerText = stdout || ">>> Código ejecutado correctamente (sin salida de texto).";
+            await pyodide.runPythonAsync(editor.getValue());
+            out.innerText = pyodide.runPython("sys.stdout.getvalue()") || "Ejecutado (sin salida)";
         } catch (err) {
-            outputElement.innerHTML = `<span class="error-text">🐍 Error en tu código Python:\n${err}</span>`;
-        } finally {
-            runBtn.disabled = false;
+            out.innerText = "Error:\n" + err;
         }
     }
 </script>
