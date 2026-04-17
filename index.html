@@ -3,32 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Intérprete Python 3 Profesional</title>
+    <title>Python Web IDE - Programación Competitiva</title>
     <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; }
-        header { padding: 10px 20px; background: #333; display: flex; justify-content: space-between; align-items: center; }
+        :root { --primary: #0078d4; --bg: #1e1e1e; --header: #2d2d2d; }
+        body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; background: var(--bg); color: white; }
+        header { padding: 12px 20px; background: var(--header); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.3); z-index: 10; }
         #main { display: flex; flex: 1; overflow: hidden; }
-        #editor-container { flex: 1; border-right: 1px solid #444; }
-        #output-container { width: 40%; background: #000; padding: 15px; overflow-y: auto; font-family: 'Consolas', monospace; color: #d4d4d4; }
-        button { background: #0078d4; color: white; border: none; padding: 8px 15px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        #editor-container { flex: 1; }
+        #output-container { width: 35%; background: #000; padding: 0; display: flex; flex-direction: column; border-left: 1px solid #444; }
+        .output-header { padding: 10px 15px; background: #252526; color: #569cd6; font-size: 13px; font-weight: bold; border-bottom: 1px solid #333; }
+        #output { flex: 1; padding: 15px; overflow-y: auto; font-family: 'Consolas', 'Courier New', monospace; color: #d4d4d4; margin: 0; white-space: pre-wrap; font-size: 14px; }
+        button { background: var(--primary); color: white; border: none; padding: 8px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: 0.2s; }
         button:hover { background: #005a9e; }
-        button:disabled { background: #555; cursor: wait; }
-        .status { font-size: 12px; color: #aaa; }
+        button:disabled { background: #555; cursor: wait; opacity: 0.7; }
+        .status-badge { font-size: 12px; padding: 4px 8px; border-radius: 10px; background: #444; color: #ddd; }
+        .error-text { color: #f44747; }
     </style>
 </head>
 <body>
 
 <header>
-    <div><strong>Python Online Interpreter</strong> <span id="loading-status" class="status">(Cargando Python...)</span></div>
-    <button id="run-btn" disabled onclick="runCode()">Ejecutar Código</button>
+    <div>
+        <strong>PyIDE v2.0</strong> 
+        <span id="loading-status" class="status-badge">⏳ Cargando motor Python...</span>
+    </div>
+    <button id="run-btn" disabled onclick="runCode()">▶ Ejecutar Código</button>
 </header>
 
 <div id="main">
     <div id="editor-container"></div>
     <div id="output-container">
-        <div style="color: #569cd6;">> Consola de Salida:</div>
-        <pre id="output"></pre>
+        <div class="output-header">CONSOLA DE SALIDA</div>
+        <pre id="output">Inicializando entorno...</pre>
     </div>
 </div>
 
@@ -39,58 +46,70 @@
     let editor;
     let pyodide;
 
-    // 1. Configurar Monaco Editor
+    // Configuración de Monaco optimizada para Web
     require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+
     require(['vs/editor/editor.main'], function() {
         editor = monaco.editor.create(document.getElementById('editor-container'), {
             value: [
-                '# Bienvenido a tu intérprete de Python\n',
-                'def saludar(nombre):\n    return f"Hola {nombre}, bienvenido a la programación competitiva!"\n',
-                'print(saludar("Estudiante"))\n',
-                '# Prueba un bucle\nfor i in range(5):\n    print(f"Número: {i}")'
+                '# Practica aquí tus ejercicios de Programación Competitiva\n',
+                'def solve():\n    # Escribe tu solución aquí\n    n = 10\n    primos = [i for i in range(2, n) if all(i % j != 0 for j in range(2, int(i**0.5) + 1))]\n    print(f"Primos hasta {n}: {primos}")\n',
+                'solve()'
             ].join('\n'),
             language: 'python',
             theme: 'vs-dark',
             automaticLayout: true,
-            fontSize: 16
+            fontSize: 15,
+            minimap: { enabled: false },
+            padding: { top: 10 }
         });
     });
 
-    // 2. Inicializar Pyodide
+    // Inicialización de Pyodide con manejo de errores
     async function initPyodide() {
+        const status = document.getElementById('loading-status');
+        const output = document.getElementById('output');
         try {
             pyodide = await loadPyodide();
-            document.getElementById('loading-status').innerText = "(Python Listo)";
+            status.innerText = "✅ Python Listo";
+            status.style.background = "#228b22";
+            output.innerText = "Entorno listo. Escribe código y presiona Ejecutar.";
             document.getElementById('run-btn').disabled = false;
         } catch (e) {
-            document.getElementById('loading-status').innerText = "(Error al cargar)";
+            status.innerText = "❌ Error de carga";
+            status.style.background = "#a80000";
+            output.innerHTML = `<span class="error-text">Error al cargar Pyodide: ${e.message}\nVerifica tu conexión a internet.</span>`;
         }
     }
     initPyodide();
 
-    // 3. Función para ejecutar el código
     async function runCode() {
         const outputElement = document.getElementById('output');
+        const runBtn = document.getElementById('run-btn');
         const code = editor.getValue();
-        outputElement.innerText = "Ejecutando...\n";
+        
+        runBtn.disabled = true;
+        outputElement.innerText = "Ejecutando...";
 
         try {
-            // Capturamos el stdout (print) para que salga en nuestro panel
+            // Limpiamos y preparamos el Standard Output
             await pyodide.runPythonAsync(`
                 import sys
                 import io
                 sys.stdout = io.StringIO()
             `);
 
+            // Ejecutamos el código del usuario
             await pyodide.runPythonAsync(code);
             
             const stdout = pyodide.runPython("sys.stdout.getvalue()");
-            outputElement.innerText = stdout || "Código ejecutado (sin salida).";
+            outputElement.innerText = stdout || ">>> Código ejecutado correctamente (sin salida de texto).";
         } catch (err) {
-            outputElement.innerText = "Error:\n" + err;
+            outputElement.innerHTML = `<span class="error-text">🐍 Error en tu código Python:\n${err}</span>`;
+        } finally {
+            runBtn.disabled = false;
         }
     }
 </script>
-
 </body>
 </html>
