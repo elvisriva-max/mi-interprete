@@ -2,100 +2,124 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Python Web Runner + Input</title>
+    <title>Python Pro Editor</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    
     <style>
-        :root { --bg: #1e1e1e; --panel: #252526; --text: #d4d4d4; }
-        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 12px; background: #2d2d2d; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #444; }
+        :root { --bg: #0d1117; --header: #161b22; --border: #30363d; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #c9d1d9; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        header { padding: 12px 20px; background: var(--header); display: flex; gap: 15px; align-items: center; border-bottom: 1px solid var(--border); }
+        
         .container { display: flex; flex: 1; overflow: hidden; }
-        .panel { flex: 1; display: flex; flex-direction: column; padding: 15px; }
-        label { font-size: 12px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
-        textarea, #output { flex: 1; background: var(--panel); color: var(--text); border: 1px solid #444; padding: 12px; font-family: 'Fira Code', 'Consolas', monospace; font-size: 14px; outline: none; border-radius: 4px; }
-        #output { color: #9cdcfe; overflow-y: auto; white-space: pre-wrap; border-left: 4px solid #007acc; }
-        button { padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .run { background: #28a745; color: white; }
-        .run:hover { background: #218838; }
-        .clear { background: #444; color: white; }
-        .clear:hover { background: #555; }
-        #status { font-size: 12px; margin-left: auto; color: #dcdcaa; }
+        .panel { flex: 1; display: flex; flex-direction: column; position: relative; border-right: 1px solid var(--border); }
+        
+        /* Capas del Editor */
+        .editor-wrapper { position: relative; flex: 1; background: #1e1e1e; margin: 10px; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+        #editing, #highlighting { margin: 0; padding: 15px; border: 0; width: 100%; height: 100%; position: absolute; top: 0; left: 0; tab-size: 4; box-sizing: border-box; font-family: 'Fira Code', 'Consolas', monospace; font-size: 14px; line-height: 1.5; white-space: pre; overflow: wrap; }
+        
+        #editing { z-index: 1; white-space: pre; color: transparent; background: transparent; caret-color: white; resize: none; outline: none; }
+        #highlighting { z-index: 0; pointer-events: none; }
+        
+        #output { flex: 1; background: #050505; color: #7ee787; padding: 15px; margin: 10px; border-radius: 6px; font-family: monospace; overflow-y: auto; white-space: pre-wrap; border: 1px solid var(--border); }
+
+        button { padding: 8px 18px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .run { background: #238636; color: white; }
+        .run:hover { background: #2ea043; }
+        .run:disabled { background: #21472a; color: #888; }
+        .clear { background: #30363d; color: #c9d1d9; border: 1px solid #8b949e; }
+        
+        label { font-size: 11px; font-weight: bold; color: #8b949e; margin: 10px 0 0 15px; text-transform: uppercase; }
     </style>
 </head>
 <body>
 
 <header>
-    <button id="runBtn" class="run" onclick="runPython()" disabled>Cargando Motor...</button>
+    <button id="runBtn" class="run" onclick="runPython()" disabled>Cargando Python...</button>
     <button class="clear" onclick="clearAll()">Limpiar</button>
-    <div id="status">Iniciando...</div>
+    <span id="status" style="font-size: 12px; color: #d29922;">Iniciando sistema...</span>
 </header>
 
 <div class="container">
     <div class="panel">
-        <label>Editor</label>
-        <textarea id="code" spellcheck="false"># Ahora puedes usar input()
-import math
-
-print("--- Calculadora de Factorial ---")
-dato = input("Introduce un número entero:")
-
-try:
-    n = int(dato)
-    if n < 0:
-        print("Error: El número debe ser positivo.")
-    else:
-        resultado = math.factorial(n)
-        print(f"El factorial de {n} es: {resultado}")
-except ValueError:
-    print(f"'{dato}' no es un número válido.")
-</textarea>
+        <label>Editor de Código</label>
+        <div class="editor-wrapper">
+            <textarea id="editing" spellcheck="false" oninput="updateEditor(this.value); syncScroll(this);" onkeydown="handleTabs(event)"></textarea>
+            <pre id="highlighting" aria-hidden="true"><code class="language-python" id="highlighting-content"></code></pre>
+        </div>
     </div>
     <div class="panel">
-        <label>Consola</label>
+        <label>Salida / Consola</label>
         <div id="output"></div>
     </div>
 </div>
 
 <script>
     let py;
+    const editor = document.getElementById("editing");
+    const resultElement = document.getElementById("highlighting-content");
+    const outputDiv = document.getElementById("output");
+
+    // Código inicial de ejemplo
+    const codeInital = `import math\n\n# Ejemplo: Factorial con input coloreado\nnombre = input("¿Cual es tu nombre?")\nprint(f"Hola {nombre}, calcularemos un factorial.")\n\nnum = int(input("Introduce un número:"))\nprint(f"El resultado es: {math.factorial(num)}")`;
 
     async function init() {
         py = await loadPyodide();
-        // ESTA ES LA CLAVE: Redefinimos el comportamiento de input() en Python
-        // para que use el prompt() de JavaScript.
-        py.runPython(`
-            import builtins
-            import js
-
-            def custom_input(prompt_text=""):
-                return js.prompt(prompt_text)
-
-            builtins.input = custom_input
-        `);
-
+        // Soporte para input()
+        py.runPython(`import builtins, js\ndef custom_input(p=""): return js.prompt(p)\nbuiltins.input = custom_input`);
+        
         document.getElementById('runBtn').disabled = false;
-        document.getElementById('runBtn').innerText = "Ejecutar Código";
-        document.getElementById('status').innerText = "Python 3.11 Online";
+        document.getElementById('runBtn').innerText = "Ejecutar (F5)";
+        document.getElementById('status').innerText = "Motor Listo";
+        document.getElementById('status').style.color = "#39d353";
+        
+        editor.value = codeInital;
+        updateEditor(codeInital);
     }
 
-    init();
+    function updateEditor(text) {
+        // Prism requiere que las entidades HTML estén escapadas
+        let content = text.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+        if(content[content.length-1] == "\n") content += " "; 
+        resultElement.innerHTML = content;
+        Prism.highlightElement(resultElement);
+    }
+
+    function syncScroll(el) {
+        document.getElementById("highlighting").scrollTop = el.scrollTop;
+    }
+
+    function handleTabs(e) {
+        if (e.key == 'Tab') {
+            e.preventDefault();
+            let start = editor.selectionStart;
+            let end = editor.selectionEnd;
+            editor.value = editor.value.substring(0, start) + "    " + editor.value.substring(end);
+            editor.selectionStart = editor.selectionEnd = start + 4;
+            updateEditor(editor.value);
+        }
+    }
 
     async function runPython() {
-        const out = document.getElementById("output");
-        out.innerText = "Ejecutando script...\n\n";
-        
-        py.setStdout({ batched: (msg) => out.innerText += msg + "\n" });
-
+        outputDiv.innerText = ">>> Ejecutando...\n";
+        py.setStdout({ batched: (msg) => outputDiv.innerText += msg + "\n" });
         try {
-            await py.runPythonAsync(document.getElementById("code").value);
-        } catch (e) {
-            out.innerText += "\n[ERROR]: " + e;
+            await py.runPythonAsync(editor.value);
+        } catch (err) {
+            outputDiv.innerText += "\n[ERROR]: " + err;
         }
     }
 
     function clearAll() {
-        document.getElementById("code").value = "";
-        document.getElementById("output").innerText = "";
+        editor.value = "";
+        updateEditor("");
+        outputDiv.innerText = "";
     }
+
+    init();
 </script>
 </body>
 </html>
