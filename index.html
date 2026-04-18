@@ -2,69 +2,93 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Python Instant Runner</title>
+    <title>Python Web Runner + Input</title>
     <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
-        :root { --bg: #1e1e1e; --panel: #252526; --text: #d4d4d4; --accent: #007acc; }
-        body { margin: 0; font-family: sans-serif; background: var(--bg); color: white; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 10px; background: #333; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #444; }
+        :root { --bg: #1e1e1e; --panel: #252526; --text: #d4d4d4; }
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; display: flex; flex-direction: column; height: 100vh; }
+        header { padding: 12px; background: #2d2d2d; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #444; }
         .container { display: flex; flex: 1; overflow: hidden; }
-        .panel { flex: 1; display: flex; flex-direction: column; padding: 10px; }
-        textarea, #output { flex: 1; background: var(--panel); color: var(--text); border: 1px solid #444; padding: 10px; font-family: 'Consolas', monospace; font-size: 14px; outline: none; }
-        #output { color: #4ec9b0; overflow-y: auto; white-space: pre-wrap; }
-        button { padding: 8px 20px; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
+        .panel { flex: 1; display: flex; flex-direction: column; padding: 15px; }
+        label { font-size: 12px; color: #888; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        textarea, #output { flex: 1; background: var(--panel); color: var(--text); border: 1px solid #444; padding: 12px; font-family: 'Fira Code', 'Consolas', monospace; font-size: 14px; outline: none; border-radius: 4px; }
+        #output { color: #9cdcfe; overflow-y: auto; white-space: pre-wrap; border-left: 4px solid #007acc; }
+        button { padding: 8px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; transition: 0.2s; }
         .run { background: #28a745; color: white; }
-        .clear { background: #666; color: white; }
-        #status { font-size: 12px; margin-left: auto; color: #888; }
+        .run:hover { background: #218838; }
+        .clear { background: #444; color: white; }
+        .clear:hover { background: #555; }
+        #status { font-size: 12px; margin-left: auto; color: #dcdcaa; }
     </style>
 </head>
 <body>
 
 <header>
-    <button id="runBtn" class="run" onclick="runPython()" disabled>Cargando...</button>
-    <button class="clear" onclick="clearAll()">Borrar</button>
-    <div id="status">Sincronizando motor...</div>
+    <button id="runBtn" class="run" onclick="runPython()" disabled>Cargando Motor...</button>
+    <button class="clear" onclick="clearAll()">Limpiar</button>
+    <div id="status">Iniciando...</div>
 </header>
 
 <div class="container">
     <div class="panel">
-        <textarea id="code"># El motor se guarda en caché para carga instantánea
-print("¡Motor cargado!")
+        <label>Editor</label>
+        <textarea id="code" spellcheck="false"># Ahora puedes usar input()
 import math
-print(f"Raíz de 144 es: {math.sqrt(144)}")</textarea>
+
+print("--- Calculadora de Factorial ---")
+dato = input("Introduce un número entero:")
+
+try:
+    n = int(dato)
+    if n < 0:
+        print("Error: El número debe ser positivo.")
+    else:
+        resultado = math.factorial(n)
+        print(f"El factorial de {n} es: {resultado}")
+except ValueError:
+    print(f"'{dato}' no es un número válido.")
+</textarea>
     </div>
     <div class="panel">
+        <label>Consola</label>
         <div id="output"></div>
     </div>
 </div>
 
 <script>
-    // Registro del Service Worker para modo Offline/Instantáneo
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').then(() => {
-                console.log('Motor persistente activado.');
-            });
-        });
-    }
-
     let py;
+
     async function init() {
         py = await loadPyodide();
+        // ESTA ES LA CLAVE: Redefinimos el comportamiento de input() en Python
+        // para que use el prompt() de JavaScript.
+        py.runPython(`
+            import builtins
+            import js
+
+            def custom_input(prompt_text=""):
+                return js.prompt(prompt_text)
+
+            builtins.input = custom_input
+        `);
+
         document.getElementById('runBtn').disabled = false;
-        document.getElementById('runBtn').innerText = "Ejecutar";
-        document.getElementById('status').innerText = "Motor local listo";
+        document.getElementById('runBtn').innerText = "Ejecutar Código";
+        document.getElementById('status').innerText = "Python 3.11 Online";
     }
+
     init();
 
     async function runPython() {
         const out = document.getElementById("output");
-        out.innerText = "Procesando...\n";
+        out.innerText = "Ejecutando script...\n\n";
+        
         py.setStdout({ batched: (msg) => out.innerText += msg + "\n" });
+
         try {
             await py.runPythonAsync(document.getElementById("code").value);
         } catch (e) {
-            out.innerText += "\nError: " + e;
+            out.innerText += "\n[ERROR]: " + e;
         }
     }
 
