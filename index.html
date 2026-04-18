@@ -2,100 +2,75 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Python Web IDE</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/editor/editor.main.css">
+    <title>Python Instant Runner</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; font-family: sans-serif; overflow: hidden; }
-        header { padding: 10px 20px; background: #2d2d2d; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; }
-        #main { display: flex; flex: 1; }
-        #editor-container { flex: 1; }
-        #output-container { width: 35%; background: #000; border-left: 1px solid #444; display: flex; flex-direction: column; }
-        .out-head { padding: 8px 15px; background: #252526; color: #569cd6; font-size: 12px; border-bottom: 1px solid #333; }
-        #output { flex: 1; padding: 15px; margin: 0; font-family: 'Consolas', monospace; color: #d4d4d4; white-space: pre-wrap; overflow-y: auto; font-size: 14px; }
-        button { background: #0078d4; color: white; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        button:disabled { background: #555; cursor: not-allowed; }
-        .status { font-size: 11px; padding: 3px 8px; border-radius: 10px; background: #444; }
+        :root { --bg: #1e1e1e; --panel: #252526; --text: #d4d4d4; --accent: #007acc; }
+        body { margin: 0; font-family: sans-serif; background: var(--bg); color: white; display: flex; flex-direction: column; height: 100vh; }
+        header { padding: 10px; background: #333; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid #444; }
+        .container { display: flex; flex: 1; overflow: hidden; }
+        .panel { flex: 1; display: flex; flex-direction: column; padding: 10px; }
+        textarea, #output { flex: 1; background: var(--panel); color: var(--text); border: 1px solid #444; padding: 10px; font-family: 'Consolas', monospace; font-size: 14px; outline: none; }
+        #output { color: #4ec9b0; overflow-y: auto; white-space: pre-wrap; }
+        button { padding: 8px 20px; border: none; border-radius: 3px; cursor: pointer; font-weight: bold; }
+        .run { background: #28a745; color: white; }
+        .clear { background: #666; color: white; }
+        #status { font-size: 12px; margin-left: auto; color: #888; }
     </style>
 </head>
 <body>
 
 <header>
-    <div><strong>Python IDE</strong> <span id="status" class="status">⏳ Cargando...</span></div>
-    <button id="run-btn" disabled onclick="runCode()">Ejecutar</button>
+    <button id="runBtn" class="run" onclick="runPython()" disabled>Cargando...</button>
+    <button class="clear" onclick="clearAll()">Borrar</button>
+    <div id="status">Sincronizando motor...</div>
 </header>
 
-<div id="main">
-    <div id="editor-container"></div>
-    <div id="output-container">
-        <div class="out-head">CONSOLA</div>
-        <pre id="output">Inicializando entorno de ejecución...</pre>
+<div class="container">
+    <div class="panel">
+        <textarea id="code"># El motor se guarda en caché para carga instantánea
+print("¡Motor cargado!")
+import math
+print(f"Raíz de 144 es: {math.sqrt(144)}")</textarea>
+    </div>
+    <div class="panel">
+        <div id="output"></div>
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/loader.js"></script>
-<script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
-
 <script>
-    // 1. CONFIGURACIÓN CRÍTICA PARA GITHUB:
-    // Forzamos a que el editor busque todo en el CDN y no en tu repositorio
-    require.config({ 
-        paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' } 
-    });
-
-    // Desactivamos la búsqueda de archivos NLS locales que causan el error 404
-    window.MonacoEnvironment = {
-        getWorkerUrl: function (workerId, label) {
-            return `data:text/javascript;charset=utf-8,${encodeURIComponent(`
-                self.MonacoEnvironment = { baseUrl: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs' };
-                importScripts('https://cdn.jsdelivr.net/npm/monaco-editor@0.45.0/min/vs/base/worker/workerMain.js');`
-            )}`;
-        }
-    };
-
-    let editor;
-    let pyodide;
-
-    // Inicializar Editor
-    require(['vs/editor/editor.main'], function () {
-        editor = monaco.editor.create(document.getElementById('editor-container'), {
-            value: "print('¡Entorno listo!')\n# Escribe tu código aquí\n",
-            language: 'python',
-            theme: 'vs-dark',
-            automaticLayout: true,
-            minimap: { enabled: false }
+    // Registro del Service Worker para modo Offline/Instantáneo
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').then(() => {
+                console.log('Motor persistente activado.');
+            });
         });
-    });
+    }
 
-    // Inicializar Python
-    async function initPython() {
-        const out = document.getElementById('output');
+    let py;
+    async function init() {
+        py = await loadPyodide();
+        document.getElementById('runBtn').disabled = false;
+        document.getElementById('runBtn').innerText = "Ejecutar";
+        document.getElementById('status').innerText = "Motor local listo";
+    }
+    init();
+
+    async function runPython() {
+        const out = document.getElementById("output");
+        out.innerText = "Procesando...\n";
+        py.setStdout({ batched: (msg) => out.innerText += msg + "\n" });
         try {
-            pyodide = await loadPyodide();
-            document.getElementById('status').innerText = "✅ Listo";
-            document.getElementById('run-btn').disabled = false;
-            out.innerText = "Python 3 cargado. Listo para ejecutar.";
+            await py.runPythonAsync(document.getElementById("code").value);
         } catch (e) {
-            out.innerText = "Error al cargar Pyodide: " + e;
+            out.innerText += "\nError: " + e;
         }
     }
-    initPython();
 
-    // Ejecución
-    async function runCode() {
-        const out = document.getElementById('output');
-        out.innerText = "Ejecutando...";
-        try {
-            await pyodide.runPythonAsync(`
-import sys, io
-sys.stdout = io.StringIO()
-            `);
-            await pyodide.runPythonAsync(editor.getValue());
-            const result = pyodide.runPython("sys.stdout.getvalue()");
-            out.innerText = result || "Código ejecutado (sin salida de texto).";
-        } catch (err) {
-            out.innerText = "Error en el código:\n" + err;
-        }
+    function clearAll() {
+        document.getElementById("code").value = "";
+        document.getElementById("output").innerText = "";
     }
 </script>
 </body>
