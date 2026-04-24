@@ -72,7 +72,7 @@
         py.runPython(`import builtins, js\ndef custom_input(p=""): return js.prompt(p)\nbuiltins.input = custom_input`);
         
         document.getElementById('runBtn').disabled = false;
-        document.getElementById('runBtn').innerText = "Ejecutar (F5)";
+        document.getElementById('runBtn').innerText = "Ejecutar";
         document.getElementById('status').innerText = "Motor Listo";
         document.getElementById('status').style.color = "#39d353";
         
